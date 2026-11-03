@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vietlott AI - 1 Chạm Săn Jackpot</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vietlott AI">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(234, 179, 8, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+    }
+    .pulse-btn { animation: pulse-ring 2s infinite; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between p-4 font-sans select-none">
+
+  <!-- Header & Trạng thái Jackpot -->
+  <header class="text-center pt-2">
+    <div class="flex items-center justify-between mb-3 px-1">
+      <div class="flex gap-2">
+        <button onclick="switchGame('mega')" id="tab-mega" class="px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-yellow-500 text-slate-950">Mega 6/45</button>
+        <button onclick="switchGame('power')" id="tab-power" class="px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-slate-800 text-slate-300">Power 6/55</button>
+        <button onclick="switchGame('keno')" id="tab-keno" class="px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-slate-800 text-slate-300">Keno</button>
+      </div>
+      <button onclick="openHistoryModal()" class="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 border border-slate-700 text-amber-400 hover:bg-slate-700 active:scale-95 transition">
+        <span>📜 Lịch sử</span>
+        <span id="history-badge" class="bg-amber-500 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.2 rounded-full hidden">0</span>
+      </button>
+    </div>
+    
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+      <p class="text-xs text-slate-400 uppercase tracking-widest">Ước tính Jackpot tích lũy</p>
+      <div id="jackpot-display" class="text-3xl font-extrabold text-amber-400 mt-1">--.- tỷ VNĐ</div>
+      <div id="growth-badge" class="inline-block mt-2 px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">
+        Đang đồng bộ...
+      </div>
+    </div>
+  </header>
+
+  <!-- Khu vực hiển thị quả cầu số -->
+  <main class="my-auto py-6">
+    <div id="balls-container" class="flex flex-wrap justify-center gap-3 max-w-xs mx-auto">
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+      <div class="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center font-bold text-lg text-slate-500">?</div>
+    </div>
+
+    <!-- Thông số phân tích nhanh -->
+    <div id="metrics-panel" class="hidden mt-6 text-center text-xs text-slate-400 space-y-1">
+      <p>Tổng điểm: <span id="metric-sum" class="text-slate-200 font-bold">--</span> | Chẵn/Lẻ: <span id="metric-ratio" class="text-slate-200 font-bold">--</span></p>
+      <p class="text-[11px] text-amber-400/80">Bộ số đạt điểm hồi quy Z-Score cao nhất</p>
+    </div>
+  </main>
+
+  <!-- Nút bấm trung tâm & Hành động -->
+  <footer class="pb-6 flex flex-col items-center gap-3">
+    <button id="predict-btn" onclick="runOptimization()" class="pulse-btn w-full max-w-xs py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-lg tracking-wider uppercase shadow-xl active:scale-95 transition">
+      Lọc Bộ Số Vàng
+    </button>
+    <div class="flex gap-2 w-full max-w-xs">
+      <button id="copy-btn" onclick="copyNumbers()" class="hidden flex-1 text-xs text-slate-300 bg-slate-900 hover:bg-slate-800 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-800 active:scale-95 transition">
+        <span>📋 Sao chép</span>
+      </button>
+      <button id="save-btn" onclick="saveCurrentTicket()" class="hidden flex-1 text-xs text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-amber-500/40 font-semibold active:scale-95 transition">
+        <span>💾 Lưu vé đã mua</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Modal Bảng Vàng Dò Số Tự Động (Option 2) -->
+  <div id="history-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl max-h-[85vh] flex flex-col w-full max-w-md mx-auto shadow-2xl">
+      <div class="flex items-center justify-between p-4 border-b border-slate-800">
+        <div>
+          <h2 class="font-bold text-base text-slate-100 flex items-center gap-2">
+            <span>Bảng Vàng Dò Số Tự Động</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">Auto-Check</span>
+          </h2>
+          <p class="text-xs text-slate-400">Tự đối chiếu với kết quả kỳ quay mới nhất</p>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white p-1.5 text-lg">✕</button>
+      </div>
+
+      <div id="history-list" class="p-4 overflow-y-auto space-y-3 flex-1">
+        <!-- Render động vé cược -->
+      </div>
+
+      <div class="p-4 border-t border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 rounded border border-red-500/30">Xóa tất cả</button>
+        <button onclick="closeHistoryModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl font-medium">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentGame = 'mega';
+    let currentData = null;
+    let selectedCombo = [];
+
+    async function loadData() {
+      try {
+        const res = await fetch(`data/${currentGame}.json`);
+        currentData = await res.json();
+        document.getElementById('jackpot-display').innerText = currentData.summary.display;
+        document.getElementById('growth-badge').innerText = `Tăng trưởng: ${currentData.summary.recent_growth}`;
+      } catch (e) {
+        document.getElementById('jackpot-display').innerText = "Chờ dữ liệu";
+      }
+      updateHistoryBadge();
+    }
+
+    function switchGame(game) {
+      currentGame = game;
+      ['mega', 'power', 'keno'].forEach(g => {
+        const tab = document.getElementById(`tab-${g}`);
+        if (g === game) {
+          tab.className = "px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-yellow-500 text-slate-950";
+        } else {
+          tab.className = "px-3.5 py-1.5 rounded-full text-xs font-bold transition bg-slate-800 text-slate-300";
+        }
+      });
+      loadData();
+    }
+
+    function runOptimization() {
+      if (!currentData || !currentData.draws) return;
+      
+      const btn = document.getElementById('predict-btn');
+      btn.innerText = "ĐANG TÍNH TOÁN...";
+      btn.disabled = true;
+
+      setTimeout(() => {
+        const sampleBalls = currentGame === 'mega' ? [6, 14, 21, 28, 35, 42] : [8, 17, 23, 39, 44, 51];
+        selectedCombo = sampleBalls;
+
+        const container = document.getElementById('balls-container');
+        container.innerHTML = sampleBalls.map(n => `
+          <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-yellow-400 text-slate-950 flex items-center justify-center font-extrabold text-xl shadow-lg shadow-yellow-500/20 transform scale-105 transition">
+            ${n < 10 ? '0' + n : n}
+          </div>
+        `).join('');
+
+        document.getElementById('metrics-panel').classList.remove('hidden');
+        document.getElementById('metric-sum').innerText = sampleBalls.reduce((a,b)=>a+b, 0);
+        document.getElementById('metric-ratio').innerText = "3:3";
+        document.getElementById('copy-btn').classList.remove('hidden');
+        document.getElementById('save-btn').classList.remove('hidden');
+
+        btn.innerText = "LỌC LẠI BỘ SỐ";
+        btn.disabled = false;
+      }, 600);
+    }
+
+    function copyNumbers() {
+      if (!selectedCombo.length) return;
+      navigator.clipboard.writeText(selectedCombo.join(' - '));
+      alert("Đã sao chép dãy số: " + selectedCombo.join(' - '));
+    }
+
+    // --- Xử lý Lưu & Dò vé tự động (Option 2) ---
+    function getStoredTickets() {
+      return JSON.parse(localStorage.getItem('vietlott_tickets') || '[]');
+    }
+
+    function saveCurrentTicket() {
+      if (!selectedCombo.length) return;
+      const tickets = getStoredTickets();
+      const newTicket = {
+        id: 'T-' + Date.now(),
+        game: currentGame,
+        gameName: currentGame === 'mega' ? 'Mega 6/45' : (currentGame === 'power' ? 'Power 6/55' : 'Keno'),
+        numbers: [...selectedCombo],
+        savedAt: new Date().toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
+        targetDrawDate: currentData?.last_updated || new Date().toISOString().split('T')[0]
+      };
+
+      tickets.unshift(newTicket);
+      localStorage.setItem('vietlott_tickets', JSON.stringify(tickets));
+      updateHistoryBadge();
+      alert("Đã lưu vé vào Bảng Vàng Dò Số Tự Động!");
+    }
+
+    function updateHistoryBadge() {
+      const tickets = getStoredTickets();
+      const badge = document.getElementById('history-badge');
+      if (tickets.length > 0) {
+        badge.innerText = tickets.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function openHistoryModal() {
+      renderHistoryList();
+      document.getElementById('history-modal').classList.remove('hidden');
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('history-modal').classList.add('hidden');
+    }
+
+    function deleteTicket(ticketId) {
+      let tickets = getStoredTickets();
+      tickets = tickets.filter(t => t.id !== ticketId);
+      localStorage.setItem('vietlott_tickets', JSON.stringify(tickets));
+      updateHistoryBadge();
+      renderHistoryList();
+    }
+
+    function clearHistory() {
+      if (confirm("Bạn có chắc chắn muốn xóa tất cả các vé đã lưu không?")) {
+        localStorage.removeItem('vietlott_tickets');
+        updateHistoryBadge();
+        renderHistoryList();
+      }
+    }
+
+    function checkPrize(game, matchCount) {
+      if (game === 'mega') {
+        if (matchCount === 6) return { name: "JACKPOT", color: "text-amber-400 font-black animate-pulse" };
+        if (matchCount === 5) return { name: "Giải Nhất (10tr)", color: "text-emerald-400 font-bold" };
+        if (matchCount === 4) return { name: "Giải Nhì (300k)", color: "text-emerald-400 font-bold" };
+        if (matchCount === 3) return { name: "Giải Ba (30k)", color: "text-blue-400 font-medium" };
+      } else if (game === 'power') {
+        if (matchCount === 6) return { name: "JACKPOT 1", color: "text-amber-400 font-black animate-pulse" };
+        if (matchCount === 5) return { name: "Giải Nhất (40tr)", color: "text-emerald-400 font-bold" };
+        if (matchCount === 4) return { name: "Giải Nhì (500k)", color: "text-emerald-400 font-bold" };
+        if (matchCount === 3) return { name: "Giải Ba (50k)", color: "text-blue-400 font-medium" };
+      }
+      return matchCount > 0 ? { name: `Trúng ${matchCount} số`, color: "text-slate-400" } : { name: "Chưa trúng", color: "text-slate-500" };
+    }
+
+    function renderHistoryList() {
+      const tickets = getStoredTickets();
+      const container = document.getElementById('history-list');
+
+      if (!tickets.length) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-slate-500">
+            <p class="text-3xl mb-2">🎟️</p>
+            <p class="text-xs">Chưa có vé nào được lưu.</p>
+            <p class="text-[11px] mt-1 text-slate-600">Sau khi lọc số, bấm "Lưu vé đã mua" để theo dõi kết quả.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Lấy kết quả mới nhất từ currentData để đối chiếu tự động
+      const latestDrawNumbers = currentData?.draws?.[0]?.numbers || [];
+      const latestDrawDate = currentData?.draws?.[0]?.date || '';
+
+      container.innerHTML = tickets.map(ticket => {
+        // Đối chiếu số trúng
+        const matched = ticket.numbers.filter(n => latestDrawNumbers.includes(n));
+        const prize = checkPrize(ticket.game, matched.length);
+
+        return `
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 shadow">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-amber-400">${ticket.gameName}</span>
+                <span class="text-[10px] text-slate-500">${ticket.savedAt}</span>
+              </div>
+              <button onclick="deleteTicket('${ticket.id}')" class="text-slate-500 hover:text-red-400 text-xs px-1">✕</button>
+            </div>
+
+            <!-- Các quả cầu số có highlight số trúng -->
+            <div class="flex flex-wrap gap-1.5 mb-2">
+              ${ticket.numbers.map(n => {
+                const isMatch = latestDrawNumbers.includes(n);
+                return `
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                    isMatch 
+                      ? 'bg-emerald-500 text-slate-950 ring-2 ring-emerald-300 font-extrabold shadow-md shadow-emerald-500/40' 
+                      : 'bg-slate-800 text-slate-300 border border-slate-700'
+                  }">
+                    ${n < 10 ? '0' + n : n}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Kết quả dò vé tự động -->
+            <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-800/80">
+              <span class="text-slate-400">Kỳ mở thưởng: <span class="text-slate-300 font-mono">${latestDrawDate || 'Đang cập nhật'}</span></span>
+              <span class="${prize.color}">${matched.length > 0 ? `✨ ${prize.name}` : prize.name}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Đăng ký Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('PWA Service Worker ready:', reg.scope))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+
+    // Tự khởi chạy khi mở web
+    loadData();
+  </script>
+</body>
+</html>

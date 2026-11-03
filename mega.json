@@ -1,0 +1,26 @@
+{
+  "game": "Mega 6/45",
+  "last_updated": "2026-11-03",
+  "summary": {
+    "current_jackpot": 42500000000,
+    "display": "42.5 tỷ VNĐ",
+    "recent_growth": "+3.8 tỷ VNĐ",
+    "status": "HOT"
+  },
+  "draws": [
+    {
+      "draw_id": "01281",
+      "date": "2026-11-03",
+      "jackpot": 42500000000,
+      "growth": 3800000000,
+      "numbers": [
+        4,
+        15,
+        23,
+        29,
+        36,
+        41
+      ]
+    }
+  ]
+}
